@@ -22,6 +22,7 @@ jobs:
       run-id: ${{ steps.set-outputs.outputs.run-id }}
 
     permissions:
+      pull-requests: read
       actions: read
       contents: read
     steps:
