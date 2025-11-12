@@ -26,5 +26,10 @@ variable "kubernetes_version" {
   description = "The Kubernetes version for the EKS cluster"
   type        = string
   default     = "1.33"
+}
 
+variable "ecr_repository_name" {
+  description = "The name of the ECR repository for container images"
+  type        = string
+  default     = "counter-service"
 }
