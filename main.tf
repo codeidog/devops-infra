@@ -77,7 +77,6 @@ module "eks" {
       # Instance configuration
       instance_types = ["t3.micro"]
 
-      # Scaling configuration - minimal for cost savings
       min_size     = 1
       max_size     = 10
       desired_size = 10
