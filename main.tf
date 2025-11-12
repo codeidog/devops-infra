@@ -140,7 +140,7 @@ resource "aws_ecr_repository_policy" "main" {
         Effect = "Allow"
         Principal = {
           AWS = [
-            module.eks.cluster_service_role_arn,
+            module.eks.cluster_iam_role_arn,
             module.eks.eks_managed_node_groups["main"].iam_role_arn
           ]
         }
