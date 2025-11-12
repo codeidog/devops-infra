@@ -7,6 +7,5 @@ terraform {
 }
 
 provider "aws" {
-  region  = "eu-west-1"
-  profile = "codeidog"
+  region = "eu-west-1"
 }
