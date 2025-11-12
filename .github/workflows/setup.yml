@@ -1,0 +1,41 @@
+name: 'Setup Repository'
+
+on:
+  workflow_dispatch:  # Manual trigger for setup
+
+jobs:
+  setup:
+    name: 'Configure Repository Settings'
+    runs-on: ubuntu-latest
+    if: github.actor == github.repository_owner
+
+    steps:
+    - name: Setup Branch Protection
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          try {
+            await github.rest.repos.updateBranchProtection({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              branch: 'main',
+              required_status_checks: {
+                strict: true,
+                contexts: [
+                  'Terraform Format',
+                  'Terraform Validate', 
+                  'Terraform Plan'
+                ]
+              },
+              enforce_admins: false,
+              required_pull_request_reviews: {
+                required_approving_review_count: 0,
+                dismiss_stale_reviews: true
+              },
+              restrictions: null
+            });
+            console.log('Branch protection updated successfully');
+          } catch (error) {
+            console.log('Branch protection update failed:', error.message);
+          }
