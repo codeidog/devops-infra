@@ -18,7 +18,7 @@ jobs:
     name: 'Get PR Number'
     runs-on: ubuntu-latest
     outputs:
-      pr-number: ${{ steps.pr.outputs.number }}
+      pr-number: ${{ steps.pr.outputs.result }}
     steps:
     - name: Get PR Number
       id: pr
@@ -28,6 +28,7 @@ jobs:
         script: |
           // Get the commit SHA from the push event
           const commitSha = context.sha;
+          console.log(`Looking for PR associated with commit: ${commitSha}`);
           
           // Search for PRs that were merged with this commit
           const { data: pullRequests } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
@@ -36,16 +37,26 @@ jobs:
             commit_sha: commitSha,
           });
           
+          console.log(`Found ${pullRequests.length} PRs associated with commit`);
+          
           // Find the merged PR
           const mergedPR = pullRequests.find(pr => pr.state === 'closed' && pr.merged_at);
           
           if (mergedPR) {
             console.log(`Found merged PR: ${mergedPR.number}`);
+            console.log(`Setting output to: ${mergedPR.number.toString()}`);
             return mergedPR.number.toString();
           } else {
             console.log('No merged PR found, this might be a direct push to main');
+            console.log('Setting output to empty string');
             return '';
           }
+
+    - name: Debug PR Output
+      run: |
+        echo "PR Number output: '${{ steps.pr.outputs.result }}'"
+        echo "Is empty check: '${{ steps.pr.outputs.result == '' }}'"
+        echo "Is not empty check: '${{ steps.pr.outputs.result != '' }}'"
 
   terraform-apply:
     name: 'Terraform Apply'
