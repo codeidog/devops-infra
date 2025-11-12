@@ -48,15 +48,6 @@ module "vpc" {
 
 }
 
-################################################################################
-# EKS Cluster Configuration - Free Tier Optimized
-# Requirements fulfilled:
-# ✅ API Server accessible from public subnets: endpoint_public_access = true
-# ✅ Node groups in private subnets: managed node groups in private subnets
-# ✅ High availability across multiple AZs: uses both public and private subnets
-# 💰 Cost optimized: t3.micro instances, minimal node count
-################################################################################
-
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "21.8.0"
@@ -89,7 +80,7 @@ module "eks" {
       # Scaling configuration - minimal for cost savings
       min_size     = 1
       max_size     = 10
-      desired_size = 3
+      desired_size = 10
       # Use On-Demand for predictable costs (Spot can be terminated)
       capacity_type = "ON_DEMAND"
 
