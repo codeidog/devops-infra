@@ -188,7 +188,7 @@ jobs:
 
     - name: Terraform Apply with Artifact
       id: apply-artifact
-      if: steps.verify.outputs.plan-exists == 'true'
+      if: steps.verify.outcome == 'success'
       run: |
         echo "Applying plan from artifact"
         terraform apply -auto-approve tfplan-${{ needs.get-pr-info.outputs.pr-number }}
@@ -198,7 +198,6 @@ jobs:
       uses: actions/github-script@v7
       with:
         script: |
-
           await github.rest.repos.createDeploymentStatus({
             owner: context.repo.owner,
             repo: context.repo.repo,
