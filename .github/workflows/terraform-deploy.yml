@@ -55,18 +55,22 @@ jobs:
           
           const prNumber = mergedPR.number.toString();
           console.log(`Found merged PR: ${prNumber}`);
+          console.log(`PR Merge Commit SHA: ${mergedPR.merge_commit_sha}`);
+          console.log(`PR Head SHA: ${mergedPR.head.sha}`);
           
           // Now get the workflow run ID for this PR
           console.log(`Looking for workflow run for PR #${prNumber}`);
           
           // Get workflow runs for the terraform-pr workflow
+          // Note: Don't filter by head_sha since squash merges create new commit SHAs
           const { data: workflowRuns } = await github.rest.actions.listWorkflowRuns({
             owner: context.repo.owner,
             repo: context.repo.repo,
             workflow_id: 'terraform-pr.yml',
-            head_sha: commitSha,
+            event: 'pull_request',
             status: 'success',
-            per_page: 100
+            head_sha: mergedPR.head.sha,
+            per_page: 50
           });
           
           console.log(`Found ${workflowRuns.workflow_runs.length} successful workflow runs for commit ${commitSha}`);
