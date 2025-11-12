@@ -55,16 +55,3 @@ output "node_groups_subnet_ids" {
   description = "Subnets where node groups are deployed (should be private)"
   value       = module.vpc.private_subnets
 }
-
-# Verification outputs
-output "requirements_check" {
-  description = "Verification that all requirements are met"
-  value = {
-    minimum_2_azs         = length(local.azs) >= 2
-    minimum_4_subnets     = length(module.vpc.private_subnets) + length(module.vpc.public_subnets) >= 4
-    has_2_private_subnets = length(module.vpc.private_subnets) >= 2
-    has_2_public_subnets  = length(module.vpc.public_subnets) >= 2
-    cost_optimized        = true # Using t3.micro instances
-    free_tier_eligible    = true # EC2 instances are free tier eligible
-  }
-}
