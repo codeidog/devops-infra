@@ -68,15 +68,3 @@ output "requirements_check" {
     free_tier_eligible    = true # EC2 instances are free tier eligible
   }
 }
-
-# Cost optimization outputs
-output "cost_optimization_summary" {
-  description = "Cost optimization settings applied"
-  value = {
-    instance_type   = "t3.micro"
-    node_count      = 3
-    storage_size_gb = 10
-    nat_gateways    = 1
-    eks_clusters    = 1
-  }
-}
