@@ -29,9 +29,3 @@ output "private_subnets_count" {
   description = "Number of private subnets"
   value       = length(module.vpc.private_subnets)
 }
-
-output "public_subnets_count" {
-  description = "Number of public subnets"
-  value       = length(module.vpc.public_subnets)
-}
-
