@@ -14,7 +14,7 @@ env:
   AWS_REGION: 'eu-west-1'
 
 jobs:
-  get-pr-number:
+  get-pr-info:
     name: 'Get PR Number and Run ID'
     runs-on: ubuntu-latest
     outputs:
@@ -104,13 +104,14 @@ jobs:
   terraform-apply:
     name: 'Terraform Apply'
     runs-on: ubuntu-latest
-    needs: get-pr-number
-    if: needs.get-pr-number.outputs.pr-number != ''
+    needs: get-pr-info
+    if: needs.get-pr-info.outputs.pr-number != '' && needs.get-pr-info.outputs.run-id != ''
     defaults:
       run:
         working-directory: ./
 
     permissions:
+      deployments: write
       statuses: write
       contents: read
       id-token: write
@@ -133,35 +134,24 @@ jobs:
     - name: Download Plan Artifact
       uses: actions/download-artifact@v5
       id: download-artifact
-      continue-on-error: true
-      if: needs.get-pr-number.outputs.run-id != '' && needs.get-pr-number.outputs.pr-number != ''
       with:
-        name: terraform-plan-${{ needs.get-pr-number.outputs.pr-number }}
-        run-id: ${{ needs.get-pr-number.outputs.run-id }}
+        name: terraform-plan-${{ needs.get-pr-info.outputs.pr-number }}
+        run-id: ${{ needs.get-pr-info.outputs.run-id }}
         path: ./
-
-    - name: Terraform Init
-      id: init
-      run: terraform init
-
+    
     - name: Verify Plan File
       id: verify
       run: |
         if [ -f "tfplan-${{ needs.get-pr-number.outputs.pr-number }}" ]; then
           echo "Plan file found"
-          echo "plan-exists=true" >> $GITHUB_OUTPUT
         else
-          echo "Plan file not found, generating new plan"
-          echo "plan-exists=false" >> $GITHUB_OUTPUT
+          echo "Plan file not found"
+          exit 1
         fi
 
-    - name: Generate Fresh Plan (Fallback)
-      id: fresh-plan
-      if: steps.verify.outputs.plan-exists == 'false'
-      run: |
-        echo "Generating fresh plan as artifact not found"
-        terraform plan -no-color -out=tfplan-fresh
-        terraform show -no-color tfplan-fresh > plan_output.txt
+    - name: Terraform Init
+      id: init
+      run: terraform init
 
     - name: Terraform Apply with Artifact
       id: apply-artifact
@@ -170,16 +160,9 @@ jobs:
         echo "Applying plan from artifact"
         terraform apply -auto-approve tfplan-${{ needs.get-pr-number.outputs.pr-number }}
 
-    - name: Terraform Apply Fresh Plan
-      id: apply-fresh
-      if: steps.verify.outputs.plan-exists == 'false'
-      run: |
-        echo "Applying fresh plan"
-        terraform apply -auto-approve tfplan-fresh
-
     - name: Generate Deployment Summary
       id: summary
-      if: steps.apply-artifact.outcome == 'success' || steps.apply-fresh.outcome == 'success'
+      if: steps.apply-artifact.outcome == 'success'
       run: |
         echo "## Deployment Summary" > deployment_summary.md
         echo "✅ **Deployment Status**: SUCCESS" >> deployment_summary.md
@@ -196,7 +179,7 @@ jobs:
 
     - name: Comment Deployment Success
       uses: actions/github-script@v7
-      if: steps.apply-artifact.outcome == 'success' || steps.apply-fresh.outcome == 'success'
+      if: steps.apply-artifact.outcome == 'success'
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
@@ -230,7 +213,7 @@ jobs:
 
     - name: Handle Deployment Failure
       uses: actions/github-script@v7
-      if: steps.apply-artifact.outcome == 'failure' || steps.apply-fresh.outcome == 'failure'
+      if: steps.apply-artifact.outcome == 'failure'
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
@@ -261,74 +244,32 @@ jobs:
           deployment_summary.md
         retention-days: 90
 
-  terraform-apply-direct:
-    name: 'Terraform Apply (Direct Push)'
-    runs-on: ubuntu-latest
-    needs: get-pr-number
-    if: needs.get-pr-number.outputs.pr-number == ''
-    defaults:
-      run:
-        working-directory: ./
-
-    permissions:
-      contents: read
-      id-token: write
-
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-        aws-region: ${{ env.AWS_REGION }}
-
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v3
-      with:
-        terraform_version: ${{ env.TF_VERSION }}
-
-    - name: Terraform Init
-      id: init
-      run: terraform init
-
-    - name: Terraform Plan
-      id: plan
-      run: |
-        terraform plan -no-color -out=tfplan-direct
-        terraform show -no-color tfplan-direct > plan_output.txt
-
-    - name: Terraform Apply
-      id: apply
-      run: terraform apply -auto-approve tfplan-direct
-
-    - name: Comment Direct Push Deployment
+    - name: Set Deployment Status - Success
+      if: steps.apply-artifact.outcome == 'success'
       uses: actions/github-script@v7
-      if: steps.apply.outcome == 'success'
+      with:
+        script: |
+
+          await github.rest.repos.createDeploymentStatus({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            deployment_id: '${{ steps.deployment.outputs.result }}',
+            state: 'success',
+            description: `✅ Terraform deployment successful`,
+            environment_url: 'https://console.aws.amazon.com/eks/home?region=${{ env.AWS_REGION }}#/clusters'
+          });
+
+    - name: Set Deployment Status - Failure
+      if: steps.apply-artifact.outcome == 'failure'
+      uses: actions/github-script@v7
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
-          const summary = `🚀 **Direct Push Deployment Successful!**
-
-          ✅ Terraform apply completed successfully (direct push to main)
-          🕐 Deployed at: ${new Date().toISOString()}
-          🔗 Commit: ${context.sha.substring(0, 7)}
-          👤 Deployed by: ${context.actor}
-          ⚠️ Note: This was a direct push to main (no PR found)`;
-
-          await github.rest.repos.createCommitComment({
+          await github.rest.repos.createDeploymentStatus({
             owner: context.repo.owner,
             repo: context.repo.repo,
-            commit_sha: context.sha,
-            body: summary
+            deployment_id: '${{ steps.deployment.outputs.result }}',
+            state: 'failure',
+            description: '❌ Terraform deployment failed',
+            log_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
           });
-
-    - name: Upload Direct Push Logs
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: terraform-direct-push-logs-${{ github.run_number }}
-        path: |
-          plan_output.txt
-        retention-days: 90
