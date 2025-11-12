@@ -46,7 +46,3 @@ output "eks_cluster_endpoint" {
   value       = module.eks.cluster_endpoint
 }
 
-output "eks_cluster_subnet_ids" {
-  description = "Subnets used by EKS cluster"
-  value       = concat(module.vpc.private_subnets, module.vpc.public_subnets)
-}
