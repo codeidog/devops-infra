@@ -107,3 +107,64 @@ module "eks" {
   subnet_ids = module.vpc.private_subnets
 
 }
+
+################################################################################
+# ECR Repository Configuration
+################################################################################
+
+resource "aws_ecr_repository" "main" {
+  name                 = "${var.name}/${var.ecr_repository_name}"
+  image_tag_mutability = "MUTABLE"
+
+
+  # Enable image scanning for security
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  tags = {
+    Environment = "checkpoint-task"
+    Terraform   = "true"
+  }
+}
+
+# ECR Repository Policy - Allow EKS to pull images
+resource "aws_ecr_repository_policy" "main" {
+  repository = aws_ecr_repository.main.name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "AllowEKSPull"
+        Effect = "Allow"
+        Principal = {
+          AWS = [
+            module.eks.cluster_iam_role_arn,
+            module.eks.eks_managed_node_groups["main"].iam_role_arn
+          ]
+        }
+        Action = [
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetRepositoryPolicy",
+          "ecr:DescribeRepositories",
+          "ecr:ListImages",
+          "ecr:DescribeImages"
+        ]
+      }
+    ]
+  })
+}
+
+################################################################################
+# IAM Role Policy Attachment for EKS Node Group ECR Access
+# Ensures EKS nodes can pull from ECR
+################################################################################
+
+# Attach ECR read-only policy to EKS node group role
+resource "aws_iam_role_policy_attachment" "eks_node_group_ecr_read_only" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+  role       = module.eks.eks_managed_node_groups["main"].iam_role_name
+}
