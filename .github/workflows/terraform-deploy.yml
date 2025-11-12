@@ -167,6 +167,7 @@ jobs:
       uses: actions/download-artifact@v5
       id: download-artifact
       with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
         name: terraform-plan-${{ needs.get-pr-info.outputs.pr-number }}
         run-id: ${{ needs.get-pr-info.outputs.run-id }}
         path: ./
@@ -192,90 +193,6 @@ jobs:
         echo "Applying plan from artifact"
         terraform apply -auto-approve tfplan-${{ needs.get-pr-info.outputs.pr-number }}
 
-    - name: Generate Deployment Summary
-      id: summary
-      if: steps.apply-artifact.outcome == 'success'
-      run: |
-        echo "## Deployment Summary" > deployment_summary.md
-        echo "✅ **Deployment Status**: SUCCESS" >> deployment_summary.md
-        echo "🕐 **Deployment Time**: $(date)" >> deployment_summary.md
-        echo "🔗 **Commit**: ${{ github.sha }}" >> deployment_summary.md
-        echo "👤 **Deployed by**: ${{ github.actor }}" >> deployment_summary.md
-        echo "🎯 **PR Number**: #${{ needs.get-pr-info.outputs.pr-number }}" >> deployment_summary.md
-        echo "📋 **Plan Source**: ${{ steps.verify.outputs.plan-exists == 'true' && 'Artifact' || 'Fresh' }}" >> deployment_summary.md
-        echo "" >> deployment_summary.md
-        echo "### Resources Applied:" >> deployment_summary.md
-        
-        # Get current state resources
-        terraform show -json | jq -r '.values.root_module.resources[]?.address' >> deployment_summary.md 2>/dev/null || echo "Unable to list resources" >> deployment_summary.md
-
-    - name: Comment Deployment Success
-      uses: actions/github-script@v7
-      if: steps.apply-artifact.outcome == 'success'
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        script: |
-          const fs = require('fs');
-          
-          let summary = '🚀 **Deployment Successful!**\n\n';
-          summary += `✅ Terraform apply completed successfully\n`;
-          summary += `🕐 Deployed at: ${new Date().toISOString()}\n`;
-          summary += `🔗 Commit: ${context.sha.substring(0, 7)}\n`;
-          summary += `👤 Deployed by: ${context.actor}\n`;
-          summary += `🎯 PR: #${{ needs.get-pr-info.outputs.pr-number }}\n`;
-          summary += `📋 Plan source: ${{ steps.verify.outputs.plan-exists == 'true' && 'PR Artifact' || 'Fresh Plan' }}\n\n`;
-          
-          // Add plan output if available
-          try {
-            const planOutput = fs.readFileSync('./plan_output.txt', 'utf8');
-            if (planOutput && planOutput.length < 50000) {  // Limit size for comment
-              summary += `<details><summary>📋 Deployment Details</summary>\n\n\`\`\`terraform\n${planOutput}\n\`\`\`\n\n</details>`;
-            }
-          } catch (e) {
-            console.log('Plan output file not found or too large');
-          }
-
-          // Add comment to the commit
-          await github.rest.repos.createCommitComment({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            commit_sha: context.sha,
-            body: summary
-          });
-
-    - name: Handle Deployment Failure
-      uses: actions/github-script@v7
-      if: steps.apply-artifact.outcome == 'failure'
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        script: |
-          const summary = `❌ **Deployment Failed!**
-
-          🚨 Terraform apply failed for commit ${context.sha.substring(0, 7)}
-          👤 Attempted by: ${context.actor}
-          🕐 Failed at: ${new Date().toISOString()}
-          🎯 PR: #${{ needs.get-pr-info.outputs.pr-number }}
-          📋 Plan source: ${{ steps.verify.outputs.plan-exists == 'true' && 'PR Artifact' || 'Fresh Plan' }}
-
-          Please check the [workflow logs](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) for details and fix the issues before retrying.`;
-
-          await github.rest.repos.createCommitComment({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            commit_sha: context.sha,
-            body: summary
-          });
-
-    - name: Upload Deployment Logs
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: terraform-deployment-logs-${{ github.run_number }}
-        path: |
-          plan_output.txt
-          deployment_summary.md
-        retention-days: 90
-
     - name: Set Deployment Status - Success
       if: steps.apply-artifact.outcome == 'success'
       uses: actions/github-script@v7
@@ -292,7 +209,7 @@ jobs:
           });
 
     - name: Set Deployment Status - Failure
-      if: steps.apply-artifact.outcome == 'failure'
+      if: failure()
       uses: actions/github-script@v7
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}

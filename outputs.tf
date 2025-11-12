@@ -35,9 +35,3 @@ output "public_subnets_count" {
   value       = length(module.vpc.public_subnets)
 }
 
-# EKS Outputs
-output "eks_cluster_name" {
-  description = "EKS cluster name"
-  value       = module.eks.cluster_name
-}
-
