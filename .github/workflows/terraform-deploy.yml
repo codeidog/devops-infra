@@ -41,22 +41,23 @@ jobs:
           
           if (mergedPR) {
             console.log(`Found merged PR: ${mergedPR.number}`);
-            return mergedPR.number;
+            return mergedPR.number.toString();
           } else {
             console.log('No merged PR found, this might be a direct push to main');
-            return null;
+            return '';
           }
 
   terraform-apply:
     name: 'Terraform Apply'
     runs-on: ubuntu-latest
     needs: get-pr-number
-    if: needs.get-pr-number.outputs.pr-number != null
+    if: needs.get-pr-number.outputs.pr-number != ''
     defaults:
       run:
         working-directory: ./
 
     permissions:
+      statuses: write
       contents: read
       id-token: write
 
@@ -206,7 +207,7 @@ jobs:
     name: 'Terraform Apply (Direct Push)'
     runs-on: ubuntu-latest
     needs: get-pr-number
-    if: needs.get-pr-number.outputs.pr-number == null
+    if: needs.get-pr-number.outputs.pr-number == ''
     defaults:
       run:
         working-directory: ./
