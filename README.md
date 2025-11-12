@@ -7,8 +7,6 @@ Terraform configuration for AWS EKS cluster and supporting resources.
 - EKS cluster with managed node groups
 - VPC with public/private subnets
 - ECR repository for container images
-- Nginx ingress controller
-- Cluster autoscaler
 
 ## Deploy
 
