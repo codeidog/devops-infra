@@ -22,6 +22,7 @@ jobs:
         working-directory: ./
 
     permissions:
+      checks: write
       contents: read
       pull-requests: write
       id-token: write
