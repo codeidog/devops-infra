@@ -88,7 +88,7 @@ module "eks" {
 
       # Scaling configuration - minimal for cost savings
       min_size     = 1
-      max_size     = 3
+      max_size     = 10
       desired_size = 3
       # Use On-Demand for predictable costs (Spot can be terminated)
       capacity_type = "ON_DEMAND"
