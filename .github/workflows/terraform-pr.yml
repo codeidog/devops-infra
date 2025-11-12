@@ -157,7 +157,7 @@ jobs:
           }
 
     - name: Upload Plan Artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       if: steps.plan.outcome == 'success'
       with:
         name: terraform-plan-${{ github.event.pull_request.number }}
